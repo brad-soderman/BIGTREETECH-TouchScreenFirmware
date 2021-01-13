@@ -12,24 +12,23 @@ static void resetRequestCommandInfo(
 )
 {
   requestCommandInfo.cmd_rev_buf = malloc(CMD_MAX_REV);
-  while(!requestCommandInfo.cmd_rev_buf); // malloc failed
-  memset(requestCommandInfo.cmd_rev_buf,0,CMD_MAX_REV);
+  while (!requestCommandInfo.cmd_rev_buf)
+    ; // malloc failed
+  memset(requestCommandInfo.cmd_rev_buf, 0, CMD_MAX_REV);
   requestCommandInfo.startMagic = string_start;
   requestCommandInfo.stopMagic = string_stop;
   requestCommandInfo.errorMagic[0] = string_error0;
   requestCommandInfo.errorMagic[1] = string_error1;
   requestCommandInfo.errorMagic[2] = string_error2;
-  if (string_error0) {
+  if (string_error0)
     requestCommandInfo.error_num = 1;
-  }
-  if (string_error1) {
+  if (string_error1)
     requestCommandInfo.error_num = 2;
-  }
-  if (string_error2) {
+  if (string_error2)
     requestCommandInfo.error_num = 3;
-  }
 
-  while(infoCmd.count || infoHost.wait) {
+  while (infoCmd.count || infoHost.wait)
+  {
     loopProcess(); // Wait for the communication to be clean before requestCommand
   }
 
@@ -61,11 +60,15 @@ void clearRequestCommandInfo(void)
 bool request_M21(void)
 {
   resetRequestCommandInfo(
-  "SD card ",          // The magic to identify the start
-  "ok",                // The magic to identify the stop
-  "No SD card",        // The first magic to identify the error response
-  "SD init fail",      // The second error magic
-  "volume.init failed" // The third error magic
+#ifdef RepRapFirmware
+    "SDHC card ", // The magic to identify the start
+#else
+    "SD card ", // The magic to identify the start
+#endif
+    "ok",                // The magic to identify the stop
+    "No SD card",        // The first magic to identify the error response
+    "SD init fail",      // The second error magic
+    "volume.init failed" // The third error magic
   );
   mustStoreCmd("M21\n");
 
@@ -79,28 +82,14 @@ bool request_M21(void)
   return !requestCommandInfo.inError;
 }
 
-/*
-SENDING:M20
-Begin file list
-PI3MK2~1.GCO 11081207
-/YEST~1/TEST2/PI3MK2~1.GCO 11081207
-/YEST~1/TEST2/PI3MK2~3.GCO 11081207
-/YEST~1/TEST2/PI3MK2~2.GCO 11081207
-/YEST~1/TEST2/PI3MK2~4.GCO 11081207
-/YEST~1/TEST2/PI3MK2~5.GCO 11081207
-/YEST~1/PI3MK2~1.GCO 11081207
-/YEST~1/PI3MK2~3.GCO 11081207
-/YEST~1/PI3MK2~2.GCO 11081207
-End file list
-*/
 char *request_M20(void)
 {
   resetRequestCommandInfo(
-  "Begin file list", // The magic to identify the start
-  "End file list",   // The magic to identify the stop
-  "Error",           // The first magic to identify the error response
-  NULL,              // The second error magic
-  NULL               // The third error magic
+    "Begin file list", // The magic to identify the start
+    "End file list",   // The magic to identify the stop
+    "Error",           // The first magic to identify the error response
+    NULL,              // The second error magic
+    NULL               // The third error magic
   );
   mustStoreCmd("M20\n");
 
@@ -113,21 +102,20 @@ char *request_M20(void)
   return requestCommandInfo.cmd_rev_buf;
 }
 
-
 /*
  * M33 retrieve long filename from short file name
  *   M33 miscel~1/armchair/armcha~1.gco
  * Output:
  *   /Miscellaneous/Armchair/Armchair.gcode
 */
-char * request_M33(char *filename)
+char *request_M33(char *filename)
 {
   resetRequestCommandInfo(
-  "/",                  // The magic to identify the start
-  "ok",                 // The magic to identify the stop
-  "Cannot open subdir", // The first magic to identify the error response
-  NULL,                 // The second error magic
-  NULL                  // The third error magic
+    "/",                  // The magic to identify the start
+    "ok",                 // The magic to identify the stop
+    "Cannot open subdir", // The first magic to identify the error response
+    NULL,                 // The second error magic
+    NULL                  // The third error magic
   );
   mustStoreCmd("M33 %s\n", filename);
 
@@ -139,7 +127,6 @@ char * request_M33(char *filename)
   //clearRequestCommandInfo(); //shall be call after copying the buffer ...
   return requestCommandInfo.cmd_rev_buf;
 }
-
 
 /**
  * Select the file to print
@@ -153,11 +140,11 @@ char * request_M33(char *filename)
 long request_M23(char *filename)
 {
   resetRequestCommandInfo(
-  "File opened",   // The magic to identify the start
-  "File selected", // The magic to identify the stop
-  "open failed",   // The first magic to identify the error response
-  NULL,            // The second error magic
-  NULL             // The third error magic
+    "File opened",   // The magic to identify the start
+    "File selected", // The magic to identify the stop
+    "open failed",   // The first magic to identify the error response
+    NULL,            // The second error magic
+    NULL             // The third error magic
   );
   mustStoreCmd("M23 %s\n", filename);
 
@@ -166,13 +153,14 @@ long request_M23(char *filename)
   {
     loopProcess();
   }
-  if (requestCommandInfo.inError) {
+  if (requestCommandInfo.inError)
+  {
     clearRequestCommandInfo();
     return 0;
   }
   // Find file size and report its.
   char *ptr;
-  long size = strtol(strstr(requestCommandInfo.cmd_rev_buf,"Size:")+5, &ptr, 10);
+  long size = strtol(strstr(requestCommandInfo.cmd_rev_buf, "Size:") + 5, &ptr, 10);
   clearRequestCommandInfo();
   return size;
 }
@@ -182,11 +170,10 @@ long request_M23(char *filename)
  **/
 bool request_M24(int pos)
 {
-  if(pos == 0){
+  if (pos == 0)
     mustStoreCmd("M24\n");
-  } else {
+  else
     mustStoreCmd("M24 S%d\n", pos);
-  }
   return true;
 }
 
@@ -217,3 +204,38 @@ bool request_M27(int seconds)
   mustStoreCmd("M27 S%d\n", seconds);
   return true;
 }
+#ifdef RepRapFirmware
+/**
+ * Return file information in RepRapFirmware
+ * SENDING:M36 3DBenchy.gcode
+ * echo: {"err":0,"size":2758088,"lastModified":"2020-10-20T17:12:18","height":49.00,"firstLayerHeight":0.20,"layerHeight":0.20,"printTime":6173,"filament":[4065.3],"generatedBy":"SuperSlicer 2.2.53 on 2020-10-20 at 15:12:18 UTC"}
+ **/
+long request_M36(char *filename)
+{
+  resetRequestCommandInfo(
+    "{\"err\"", // The magic to identify the start
+    "}",        // The magic to identify the stop
+    "Error:",   // The first magic to identify the error response
+    NULL,       // The second error magic
+    NULL        // The third error magic
+  );
+  mustStoreCmd("M36 %s\n", filename);
+  // Wait for response
+  while (!requestCommandInfo.done)
+  {
+    loopProcess();
+  }
+  if (requestCommandInfo.inError)
+  {
+    clearRequestCommandInfo();
+    return 0;
+  }
+  // Find file size and report its.
+  char *ptr;
+  long size = strtol(strstr(requestCommandInfo.cmd_rev_buf, "size\":") + 6, &ptr, 10);
+  storeCmd("M117 %d\n", size);
+  clearRequestCommandInfo();
+  return size;
+}
+
+#endif
