@@ -1,11 +1,21 @@
 #include "vfs.h"
 #include "includes.h"
 
-MYFILE infoFile = {"?:", {0}, {0}, 0, 0, 0, TFT_SD, {0}};
+MYFILE infoFile = {"?:", {0}, {0}, 0, 0, 0, 0, TFT_SD, {0}};
+
+void setPrintModelIcon(bool exist)
+{
+  infoFile.model_icon = exist;
+}
+
+bool isPrintModelIcon(void)
+{
+  return infoFile.model_icon;
+}
 
 bool mountFS(void)
 {
-  //  resetInfoFile();   //needn't this
+  //  resetInfoFile();  //needn't this
   switch (infoFile.source)
   {
     case TFT_SD:
@@ -15,42 +25,34 @@ bool mountFS(void)
       return mountUDisk();
 
     case BOARD_SD:
-  #ifdef RepRapFirmware
-      /* no mount while printing */
       if (infoHost.printing)
-      {
-        return true;
-      }
+        return true;  // no mount while printing
       else
-      {
         return mountGcodeSDCard();
-      }
-  #else
-      return mountGcodeSDCard();
-  #endif
+
+    default:
+      return false;
   }
-  return false;
 }
 
-/*
-*/
+// clear and free memory from file list
 void clearInfoFile(void)
 {
   uint8_t i = 0;
-  for (i = 0; i < infoFile.F_num; i++)
+  for (i = 0; i < infoFile.folderCount; i++)
   {
     free(infoFile.folder[i]);
     infoFile.folder[i] = 0;
   }
-  for (i = 0; i < infoFile.f_num; i++)
+  for (i = 0; i < infoFile.fileCount; i++)
   {
     free(infoFile.file[i]);
     infoFile.file[i] = 0;
     free(infoFile.Longfile[i]);
     infoFile.Longfile[i] = 0;
   }
-  infoFile.F_num = 0;
-  infoFile.f_num = 0;
+  infoFile.folderCount = 0;
+  infoFile.fileCount = 0;
 }
 
 TCHAR *getCurFileSource(void)
@@ -59,29 +61,31 @@ TCHAR *getCurFileSource(void)
   {
     case TFT_SD:
       return "SD:";
+
     case TFT_UDISK:
       return "U:";
+
     case BOARD_SD:
+    case BOARD_SD_REMOTE:
       return "bSD:";
+
+    default:
+      break;
   }
   return NULL;
 }
 
-/*
-infoFile
-*/
+// reset file list
 void resetInfoFile(void)
 {
   FS_SOURCE source = infoFile.source;
   clearInfoFile();
   memset(&infoFile, 0, sizeof(infoFile));
   infoFile.source = source;
-
   strcpy(infoFile.title, getCurFileSource());
 }
 
-/*
-*/
+// scan files in source
 bool scanPrintFiles(void)
 {
   clearInfoFile();
@@ -93,12 +97,12 @@ bool scanPrintFiles(void)
 
     case BOARD_SD:
       return scanPrintFilesGcodeFs();
+    default:
+      return false;
   }
-  return false;
 }
 
-/*
-*/
+// check and open folder
 bool EnterDir(char *nextdir)
 {
   if (strlen(infoFile.title) + strlen(nextdir) + 2 >= MAX_PATH_LEN)
@@ -108,8 +112,7 @@ bool EnterDir(char *nextdir)
   return 1;
 }
 
-/*
-*/
+// close folder
 void ExitDir(void)
 {
   int i = strlen(infoFile.title);
@@ -119,8 +122,7 @@ void ExitDir(void)
   infoFile.title[i] = 0;
 }
 
-/*
-*/
+// check if current folder is root
 bool IsRootDir(void)
 {
   return !strchr(infoFile.title, '/');
@@ -129,7 +131,7 @@ bool IsRootDir(void)
 // Volume exist detect
 static bool volumeSrcStatus[FF_VOLUMES] = {false, false};
 
-bool isVolumeExist(u8 src)
+bool isVolumeExist(uint8_t src)
 {
   if (src >= FF_VOLUMES)
     return true;
@@ -140,7 +142,7 @@ uint8_t (*volumeInserted[FF_VOLUMES])(void) = {SD_CD_Inserted, USBH_USR_Inserted
 
 void loopVolumeSource(void)
 {
-  for (u8 i = 0; i < FF_VOLUMES; i++)
+  for (uint8_t i = 0; i < FF_VOLUMES; i++)
   {
     if (volumeSrcStatus[i] != (*volumeInserted[i])())
     {
